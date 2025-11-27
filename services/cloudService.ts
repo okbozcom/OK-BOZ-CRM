@@ -1,6 +1,6 @@
 
-import { initializeApp } from 'firebase/app';
-import { getFirestore, doc, setDoc, getDoc } from 'firebase/firestore';
+import { initializeApp, getApps, deleteApp } from 'firebase/app';
+import { getFirestore, doc, setDoc, getDoc, Firestore } from 'firebase/firestore';
 
 export interface FirebaseConfig {
   apiKey: string;
@@ -11,34 +11,40 @@ export interface FirebaseConfig {
   appId: string;
 }
 
-let db: any = null;
-
-// Initialize Firebase Instance
-const getDb = (config: FirebaseConfig) => {
-  if (!db) {
-    try {
-      const app = initializeApp(config);
-      db = getFirestore(app);
-    } catch (e) {
-      console.error("Error initializing Firebase:", e);
-      throw new Error("Invalid Firebase Configuration");
+// Robust initialization that handles config changes
+const getDb = async (config: FirebaseConfig): Promise<Firestore> => {
+  try {
+    // If an app already exists, delete it to ensure we use the new config
+    if (getApps().length > 0) {
+      await deleteApp(getApps()[0]);
     }
+    
+    const app = initializeApp(config);
+    return getFirestore(app);
+  } catch (e: any) {
+    console.error("Error initializing Firebase:", e);
+    throw new Error(e.message || "Invalid Firebase Configuration");
   }
-  return db;
 };
 
-export const initFirebase = (config: FirebaseConfig): boolean => {
-  try {
-    getDb(config);
-    return true;
-  } catch (e) {
-    return false;
-  }
+export const testConnection = async (config: FirebaseConfig): Promise<{success: boolean, message: string}> => {
+    try {
+        const db = await getDb(config);
+        // Try to read a dummy doc to test connectivity and permission rules
+        await getDoc(doc(db, "system_check", "connectivity_test"));
+        return { success: true, message: "Connection successful! Firestore is reachable." };
+    } catch (error: any) {
+        console.error("Test Connection Error:", error);
+        let msg = error.message;
+        if (msg.includes("permission-denied")) msg = "Permission Denied. Go to Firebase Console > Firestore > Rules and set 'allow read, write: if true;' for testing.";
+        if (msg.includes("configuration")) msg = "Invalid Configuration. Please check your API Key and Project ID.";
+        return { success: false, message: "Connection Failed: " + msg };
+    }
 };
 
 export const syncToCloud = async (config: FirebaseConfig): Promise<{success: boolean, message: string}> => {
   try {
-    const database = getDb(config);
+    const database = await getDb(config);
     const data: Record<string, any> = {};
     
     // Define crucial keys to backup
@@ -46,7 +52,7 @@ export const syncToCloud = async (config: FirebaseConfig): Promise<{success: boo
         'app_settings', 'app_branding', 'corporate_accounts', 
         'staff_data', 'leads_data', 'vendor_data', 'tasks_data', 
         'office_expenses', 'reception_recent_transfers', 'leave_history',
-        'admin_sidebar_order', 'smtp_config'
+        'admin_sidebar_order', 'smtp_config', 'global_enquiries_data'
     ];
 
     // 1. Capture Specific Keys
@@ -73,23 +79,24 @@ export const syncToCloud = async (config: FirebaseConfig): Promise<{success: boo
         }
     }
 
-    // 3. Save to Firestore (Single Document "GlobalStore" for simplicity in this admin tool)
-    // In a multi-tenant real app, this would be structured differently.
+    // 3. Save to Firestore
     await setDoc(doc(database, "ok_boz_system", "global_backup"), {
         timestamp: new Date().toISOString(),
         data: data
     });
     
-    return { success: true, message: "Database successfully saved to Vercel/Firebase Cloud!" };
+    return { success: true, message: "Sync Successful! Data saved to Cloud." };
   } catch (error: any) {
     console.error("Sync Error:", error);
-    return { success: false, message: error.message || "Failed to sync to cloud." };
+    let msg = error.message;
+    if (msg.includes("permission-denied")) msg = "Permission Denied. Check Firestore Rules.";
+    return { success: false, message: "Sync Failed: " + msg };
   }
 };
 
 export const restoreFromCloud = async (config: FirebaseConfig): Promise<{success: boolean, message: string}> => {
   try {
-    const database = getDb(config);
+    const database = await getDb(config);
     const docRef = doc(database, "ok_boz_system", "global_backup");
     const docSnap = await getDoc(docRef);
 
@@ -105,14 +112,14 @@ export const restoreFromCloud = async (config: FirebaseConfig): Promise<{success
                   localStorage.setItem(key, String(value));
               }
           });
-          return { success: true, message: "Database restored successfully! Reloading..." };
+          return { success: true, message: "Restored Successfully! Reloading..." };
       }
       return { success: false, message: "Backup file is empty." };
     } else {
-      return { success: false, message: "No cloud backup found." };
+      return { success: false, message: "No backup found in Cloud Database." };
     }
   } catch (error: any) {
     console.error("Restore Error:", error);
-    return { success: false, message: error.message || "Failed to restore from cloud." };
+    return { success: false, message: "Restore Failed: " + error.message };
   }
 };
