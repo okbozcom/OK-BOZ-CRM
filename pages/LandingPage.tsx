@@ -103,7 +103,7 @@ const LandingPage: React.FC = () => {
                 onClick={() => navigate('/login')}
                 className="bg-gray-900 hover:bg-gray-800 text-white px-5 py-2.5 rounded-lg font-medium transition-all shadow-md hover:shadow-lg transform hover:-translate-y-0.5"
               >
-                Login
+                Sign In
               </button>
             </div>
 
@@ -143,18 +143,15 @@ const LandingPage: React.FC = () => {
             <div className="lg:w-1/2 text-center lg:text-left space-y-8">
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-100 text-emerald-700 text-xs font-bold uppercase tracking-wide animate-in fade-in slide-in-from-bottom-4 duration-700">
                 <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                New: AI HR Assistant Added
+                Integrated System
               </div>
               
               <h1 className="text-5xl lg:text-6xl font-extrabold text-gray-900 leading-[1.1] tracking-tight animate-in fade-in slide-in-from-bottom-6 duration-700 delay-100">
-                Manage your staff <br/>
-                <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-600 to-teal-500">
-                  smarter, not harder.
-                </span>
+                Unified <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-600 to-teal-500">Admin & User</span> Portal
               </h1>
               
               <p className="text-xl text-gray-500 leading-relaxed max-w-2xl mx-auto lg:mx-0 animate-in fade-in slide-in-from-bottom-8 duration-700 delay-200">
-                The all-in-one platform for attendance tracking, automated payroll, and field force management. Designed for modern Indian businesses.
+                Seamlessly manage your workforce with a powerful Admin Dashboard for tracking and payroll, and a dedicated User Panel for employee self-service.
               </p>
               
               <div className="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-4 animate-in fade-in slide-in-from-bottom-8 duration-700 delay-300">
@@ -162,19 +159,22 @@ const LandingPage: React.FC = () => {
                   onClick={() => navigate('/login')}
                   className="w-full sm:w-auto px-8 py-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-lg shadow-xl shadow-emerald-200 transition-all hover:scale-105 flex items-center justify-center gap-2"
                 >
-                  Get Started Free <ArrowRight className="w-5 h-5" />
+                  <Shield className="w-5 h-5" /> Admin Panel
                 </button>
-                <button className="w-full sm:w-auto px-8 py-4 bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 rounded-xl font-bold text-lg transition-all flex items-center justify-center gap-2">
-                   <Zap className="w-5 h-5 text-gray-400" /> View Demo
+                <button 
+                  onClick={() => navigate('/login')}
+                  className="w-full sm:w-auto px-8 py-4 bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 hover:text-emerald-600 rounded-xl font-bold text-lg transition-all flex items-center justify-center gap-2 shadow-sm"
+                >
+                   <Users className="w-5 h-5" /> User Panel
                 </button>
               </div>
 
               <div className="pt-4 flex items-center justify-center lg:justify-start gap-6 text-sm text-gray-500 animate-in fade-in duration-1000 delay-500">
                 <div className="flex items-center gap-2">
-                  <CheckCircle className="w-4 h-4 text-emerald-500" /> No credit card required
+                  <CheckCircle className="w-4 h-4 text-emerald-500" /> Role-based access
                 </div>
                 <div className="flex items-center gap-2">
-                  <CheckCircle className="w-4 h-4 text-emerald-500" /> 14-day free trial
+                  <CheckCircle className="w-4 h-4 text-emerald-500" /> Secure & Encrypted
                 </div>
               </div>
             </div>
