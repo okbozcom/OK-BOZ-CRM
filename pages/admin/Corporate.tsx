@@ -4,12 +4,25 @@ import { Plus, Search, Building2, Mail, Phone, Lock, Trash2, X, MapPin, Eye, Eye
 import { CorporateAccount } from '../../types';
 
 const Corporate: React.FC = () => {
-  // 1. Safe Initialization
+  // 1. Safe Initialization with Default Mock
   const [accounts, setAccounts] = useState<CorporateAccount[]>(() => {
     try {
       const saved = localStorage.getItem('corporate_accounts');
       const parsed = saved ? JSON.parse(saved) : [];
-      return Array.isArray(parsed) ? parsed : [];
+      if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed;
+      }
+      // Default Mock Account for Demo Purposes
+      return [{
+            id: 'CORP-DEMO',
+            companyName: 'Demo Franchise',
+            email: 'franchise@okboz.com',
+            password: 'franchise123',
+            phone: '9876543210',
+            city: 'Mumbai',
+            status: 'Active',
+            createdAt: new Date().toISOString().split('T')[0]
+      }];
     } catch (e) {
       console.error("Failed to parse corporate accounts", e);
       return [];
@@ -35,21 +48,7 @@ const Corporate: React.FC = () => {
   // Ref to track first render to prevent overwriting localStorage on mount
   const firstRender = useRef(true);
 
-  // 2. Self-Healing: Double check storage on mount to ensure we didn't miss data
-  useEffect(() => {
-    const saved = localStorage.getItem('corporate_accounts');
-    if (saved && accounts.length === 0) {
-        try {
-            const parsed = JSON.parse(saved);
-            if (Array.isArray(parsed) && parsed.length > 0) {
-                console.log("Restored corporate accounts from storage mismatch.");
-                setAccounts(parsed);
-            }
-        } catch (e) {}
-    }
-  }, []);
-
-  // 3. Persist to LocalStorage with SAFETY GUARD
+  // 2. Persist to LocalStorage with SAFETY GUARD
   useEffect(() => {
     // Skip the first render
     if (firstRender.current) {
@@ -71,7 +70,7 @@ const Corporate: React.FC = () => {
     localStorage.setItem('corporate_accounts', JSON.stringify(accounts));
   }, [accounts]);
 
-  // 4. Cross-Tab Synchronization
+  // 3. Cross-Tab Synchronization
   useEffect(() => {
     const handleStorageChange = (e: StorageEvent) => {
       if (e.key === 'corporate_accounts' && e.newValue) {

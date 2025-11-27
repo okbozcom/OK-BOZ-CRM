@@ -43,10 +43,27 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
       } else if (activeTab === 'corporate') {
         // Validate against created corporate accounts
         const savedAccounts = localStorage.getItem('corporate_accounts');
-        const accounts: CorporateAccount[] = savedAccounts ? JSON.parse(savedAccounts) : [];
+        let accounts: CorporateAccount[] = savedAccounts ? JSON.parse(savedAccounts) : [];
         
-        const account = accounts.find(acc => acc.email.toLowerCase() === email.toLowerCase() && acc.password === password && acc.status === 'Active');
+        let account = accounts.find(acc => acc.email.toLowerCase() === email.toLowerCase() && acc.password === password && acc.status === 'Active');
         
+        // Fallback for Demo Credential if not found in storage (Critical for fresh Vercel deploys)
+        if (!account && email.toLowerCase() === 'franchise@okboz.com' && password === 'franchise123') {
+             account = {
+                id: 'CORP-DEMO',
+                companyName: 'Demo Franchise',
+                email: 'franchise@okboz.com',
+                password: 'franchise123',
+                phone: '9876543210',
+                city: 'Mumbai',
+                status: 'Active',
+                createdAt: new Date().toISOString()
+            };
+            // Seed it so it persists for this session and future Admin views
+            accounts.push(account);
+            localStorage.setItem('corporate_accounts', JSON.stringify(accounts));
+        }
+
         if (account) {
            localStorage.setItem('app_session_id', account.email); // Identify as Corporate User (using email as ID)
            localStorage.setItem('user_role', UserRole.CORPORATE);
@@ -352,18 +369,21 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
               {/* Demo Credentials Hint */}
               <div className="mt-8 pt-6 border-t border-gray-100">
                 <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Demo Credentials</p>
-                <div className="grid grid-cols-2 gap-4 text-xs">
-                  <div className="bg-gray-50 p-3 rounded-lg border border-gray-100 cursor-pointer hover:border-gray-300 transition-colors" 
+                <div className="grid grid-cols-3 gap-2 text-xs">
+                  <div className="bg-gray-50 p-2 rounded-lg border border-gray-100 cursor-pointer hover:border-gray-300 transition-colors" 
                        onClick={() => {setActiveTab('admin'); setEmail('okboz.com@gmail.com'); setPassword('admin123');}}>
                     <p className="font-semibold mb-1" style={{ color: primaryColor }}>Admin</p>
-                    <p className="text-gray-600 break-words">okboz.com@gmail.com</p>
-                    <p className="text-gray-500 font-mono mt-1">admin123</p>
+                    <p className="text-gray-500 font-mono">admin123</p>
                   </div>
-                  <div className="bg-gray-50 p-3 rounded-lg border border-gray-100 cursor-pointer hover:border-gray-300 transition-colors"
+                  <div className="bg-gray-50 p-2 rounded-lg border border-gray-100 cursor-pointer hover:border-gray-300 transition-colors"
+                       onClick={() => {setActiveTab('corporate'); setEmail('franchise@okboz.com'); setPassword('franchise123');}}>
+                    <p className="font-semibold text-purple-700 mb-1">Corporate</p>
+                    <p className="text-gray-500 font-mono">franchise123</p>
+                  </div>
+                  <div className="bg-gray-50 p-2 rounded-lg border border-gray-100 cursor-pointer hover:border-gray-300 transition-colors"
                        onClick={() => {setActiveTab('employee'); setEmail('employee@okboz.com'); setPassword('user123');}}>
                     <p className="font-semibold text-blue-700 mb-1">Employee</p>
-                    <p className="text-gray-600 break-words">employee@okboz.com</p>
-                    <p className="text-gray-500 font-mono mt-1">user123</p>
+                    <p className="text-gray-500 font-mono">user123</p>
                   </div>
                 </div>
               </div>
