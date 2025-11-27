@@ -1,8 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
-import { Save, Bell, Clock, Building, Globe, Shield, Plus, Trash2, MapPin, AlertTriangle, ExternalLink, CheckCircle, Palette, RefreshCcw, Image, Database, Download, Upload, FileJson, UsersRound, Check, X as XIcon, Edit2, Lock, Eye, EyeOff, Key, Mail, Server, Cloud, CloudUpload, CloudDownload, Wifi, LogOut, Share2, Copy } from 'lucide-react';
+import { Save, Bell, Clock, Building, Globe, Shield, Plus, Trash2, MapPin, Eye, EyeOff, Mail, Server, Database, Download, Upload, UsersRound, Edit2, X as XIcon, Check, Palette, AlertTriangle } from 'lucide-react';
 import { useBranding } from '../../context/BrandingContext';
-import { initFirebase, syncToCloud, restoreFromCloud, FirebaseConfig } from '../../services/cloudService';
 
 // Interface for Sub Admin / Office Staff
 interface Permission {
@@ -44,11 +43,10 @@ const Settings: React.FC = () => {
 
   const getSessionKey = (key: string) => {
     const sessionId = localStorage.getItem('app_session_id') || 'admin';
-    // If super admin, use the global key. If corporate, use namespaced key.
     return isSuperAdmin ? key : `${key}_${sessionId}`;
   };
 
-  const [activeTab, setActiveTab] = useState<'general' | 'attendance' | 'subadmin' | 'notifications' | 'security' | 'integrations' | 'whitelabel' | 'data' | 'cloud'>(
+  const [activeTab, setActiveTab] = useState<'general' | 'attendance' | 'subadmin' | 'notifications' | 'security' | 'integrations' | 'whitelabel' | 'data'>(
     isSuperAdmin ? 'general' : 'attendance'
   );
   
@@ -73,23 +71,6 @@ const Settings: React.FC = () => {
   });
   const [showSmtpPassword, setShowSmtpPassword] = useState(false);
   const [isTestingEmail, setIsTestingEmail] = useState(false);
-
-  // Firebase / Cloud Sync State
-  const [firebaseConfig, setFirebaseConfig] = useState<FirebaseConfig>(() => {
-    const saved = localStorage.getItem('firebase_config');
-    return saved ? JSON.parse(saved) : {
-      apiKey: '',
-      authDomain: '',
-      projectId: '',
-      storageBucket: '',
-      messagingSenderId: '',
-      appId: ''
-    };
-  });
-  const [isSyncing, setIsSyncing] = useState(false);
-  const [syncStatus, setSyncStatus] = useState<{type: 'success' | 'error' | '', msg: string}>({ type: '', msg: '' });
-  const [shareToken, setShareToken] = useState('');
-  const [importToken, setImportToken] = useState('');
 
   // Default Settings State
   const defaultSettings = {
@@ -205,11 +186,6 @@ const Settings: React.FC = () => {
     setBrandingForm(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleFirebaseConfigChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setFirebaseConfig(prev => ({ ...prev, [name]: value }));
-  };
-
   const toggleSetting = (key: string) => {
     setFormData(prev => ({ ...prev, [key]: !prev[key as keyof typeof prev] }));
   };
@@ -258,9 +234,6 @@ const Settings: React.FC = () => {
     // Save Email Settings
     localStorage.setItem('smtp_config', JSON.stringify(emailSettings));
 
-    // Save Firebase Config
-    localStorage.setItem('firebase_config', JSON.stringify(firebaseConfig));
-
     // Save Settings Data to LocalStorage (For StaffList to access)
     const settingsKey = getSessionKey('app_settings');
     localStorage.setItem(settingsKey, JSON.stringify(formData));
@@ -308,74 +281,6 @@ const Settings: React.FC = () => {
         });
     }
   }
-
-  // --- Cloud Sync Handlers ---
-  const handleCloudSync = async (direction: 'up' | 'down') => {
-    if (!firebaseConfig.apiKey) {
-        setSyncStatus({ type: 'error', msg: 'Please configure Firebase settings first.' });
-        return;
-    }
-
-    setIsSyncing(true);
-    setSyncStatus({ type: '', msg: 'Connecting to Google Cloud...' });
-
-    let result;
-    if (direction === 'up') {
-        result = await syncToCloud(firebaseConfig);
-    } else {
-        result = await restoreFromCloud(firebaseConfig);
-    }
-
-    setIsSyncing(false);
-    setSyncStatus({
-        type: result.success ? 'success' : 'error',
-        msg: result.message
-    });
-
-    if (result.success && direction === 'down') {
-        setTimeout(() => {
-            window.location.reload();
-        }, 1500);
-    }
-  };
-
-  const handleDisconnectCloud = () => {
-      if(window.confirm("Disconnect from current Google Cloud project? This will stop future syncs until re-configured.")) {
-          localStorage.removeItem('firebase_config');
-          setFirebaseConfig({
-              apiKey: '', authDomain: '', projectId: '', storageBucket: '', messagingSenderId: '', appId: ''
-          });
-          setSyncStatus({ type: '', msg: '' });
-      }
-  };
-
-  const handleGenerateShareToken = () => {
-      if (!firebaseConfig.apiKey) {
-          alert("Configure Firebase first.");
-          return;
-      }
-      // Simple Base64 encoding of the config object
-      const token = btoa(JSON.stringify(firebaseConfig));
-      setShareToken(token);
-  };
-
-  const handleImportToken = () => {
-      try {
-          const decoded = atob(importToken);
-          const config = JSON.parse(decoded);
-          
-          if (config.apiKey && config.projectId) {
-              setFirebaseConfig(config);
-              localStorage.setItem('firebase_config', JSON.stringify(config));
-              setSyncStatus({ type: 'success', msg: 'Configuration imported successfully! You can now sync.' });
-              setImportToken('');
-          } else {
-              alert("Invalid token format.");
-          }
-      } catch (e) {
-          alert("Invalid token string.");
-      }
-  };
 
   // --- Security Handlers ---
   const handleSecuritySubmit = (e: React.FormEvent) => {
@@ -594,7 +499,6 @@ const Settings: React.FC = () => {
   const allTabs = [
     { id: 'general', label: 'Company Profile', icon: Building, visible: isSuperAdmin },
     { id: 'attendance', label: 'Attendance Rules', icon: Clock, visible: true },
-    { id: 'cloud', label: 'Cloud Sync', icon: Cloud, visible: true }, // New Cloud Tab
     { id: 'subadmin', label: 'Sub Admins', icon: UsersRound, visible: true }, 
     { id: 'whitelabel', label: 'White Labeling', icon: Palette, visible: isSuperAdmin },
     { id: 'data', label: 'Data Management', icon: Database, visible: isSuperAdmin }, 
@@ -645,191 +549,6 @@ const Settings: React.FC = () => {
         <div className="flex-1">
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 min-h-[500px]">
             
-            {/* Cloud Sync Settings */}
-            {activeTab === 'cloud' && (
-              <div className="space-y-6">
-                <div className="border-b border-gray-100 pb-4 flex justify-between items-center">
-                    <div>
-                        <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2">
-                            <Cloud className="w-6 h-6 text-blue-500" /> Google Cloud Sync
-                        </h3>
-                        <p className="text-sm text-gray-500 mt-1">
-                            Synchronize your application data to Google Cloud (Firebase) to access it across different browsers and devices.
-                        </p>
-                    </div>
-                    {firebaseConfig.apiKey && (
-                        <button 
-                            onClick={handleDisconnectCloud}
-                            className="text-xs text-red-500 hover:text-red-700 hover:bg-red-50 px-3 py-2 rounded-lg border border-red-100 flex items-center gap-1 transition-colors"
-                        >
-                            <LogOut className="w-3 h-3" /> Disconnect
-                        </button>
-                    )}
-                </div>
-
-                {/* Connection Status */}
-                <div className={`p-4 rounded-xl border flex items-start gap-3 ${firebaseConfig.apiKey ? 'bg-green-50 border-green-100' : 'bg-gray-50 border-gray-200'}`}>
-                    <div className={`p-2 rounded-full ${firebaseConfig.apiKey ? 'bg-green-100 text-green-600' : 'bg-gray-200 text-gray-500'}`}>
-                        <Wifi className="w-5 h-5" />
-                    </div>
-                    <div>
-                        <h4 className="font-bold text-sm text-gray-900">{firebaseConfig.apiKey ? 'Configuration Saved' : 'Not Configured'}</h4>
-                        <p className="text-xs text-gray-500 mt-1">
-                            {firebaseConfig.apiKey 
-                                ? 'Ready to sync data. Click "Sync Data" to upload or "Restore Data" to download.' 
-                                : 'Please enter your Firebase Project credentials below to enable cross-browser sync.'}
-                        </p>
-                    </div>
-                </div>
-
-                {/* Config Form */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="md:col-span-2">
-                        <h4 className="text-xs font-bold text-gray-500 uppercase mb-3">Firebase Configuration</h4>
-                    </div>
-                    <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">API Key</label>
-                        <input 
-                            name="apiKey"
-                            value={firebaseConfig.apiKey}
-                            onChange={handleFirebaseConfigChange}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"
-                            type="password"
-                            placeholder="AIzaSy..."
-                        />
-                    </div>
-                    <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">Project ID</label>
-                        <input 
-                            name="projectId"
-                            value={firebaseConfig.projectId}
-                            onChange={handleFirebaseConfigChange}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"
-                            placeholder="my-app-id"
-                        />
-                    </div>
-                    <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">Auth Domain</label>
-                        <input 
-                            name="authDomain"
-                            value={firebaseConfig.authDomain}
-                            onChange={handleFirebaseConfigChange}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"
-                            placeholder="my-app.firebaseapp.com"
-                        />
-                    </div>
-                    <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">Storage Bucket</label>
-                        <input 
-                            name="storageBucket"
-                            value={firebaseConfig.storageBucket}
-                            onChange={handleFirebaseConfigChange}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"
-                            placeholder="my-app.appspot.com"
-                        />
-                    </div>
-                    <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">Messaging Sender ID</label>
-                        <input 
-                            name="messagingSenderId"
-                            value={firebaseConfig.messagingSenderId}
-                            onChange={handleFirebaseConfigChange}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"
-                        />
-                    </div>
-                    <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">App ID</label>
-                        <input 
-                            name="appId"
-                            value={firebaseConfig.appId}
-                            onChange={handleFirebaseConfigChange}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"
-                        />
-                    </div>
-                </div>
-
-                {/* Sync Actions */}
-                <div className="pt-6 border-t border-gray-100">
-                    <div className="flex gap-4">
-                        <button 
-                            onClick={() => handleCloudSync('up')}
-                            disabled={isSyncing || !firebaseConfig.apiKey}
-                            className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 text-white px-4 py-3 rounded-lg font-bold flex items-center justify-center gap-2 shadow-sm transition-colors"
-                        >
-                            {isSyncing ? 'Syncing...' : (
-                                <>
-                                    <CloudUpload className="w-5 h-5" /> Sync to Cloud
-                                </>
-                            )}
-                        </button>
-                        <button 
-                            onClick={() => handleCloudSync('down')}
-                            disabled={isSyncing || !firebaseConfig.apiKey}
-                            className="flex-1 bg-white border-2 border-blue-600 text-blue-600 hover:bg-blue-50 disabled:border-gray-300 disabled:text-gray-400 px-4 py-3 rounded-lg font-bold flex items-center justify-center gap-2 transition-colors"
-                        >
-                            <CloudDownload className="w-5 h-5" /> Restore from Cloud
-                        </button>
-                    </div>
-                    
-                    {syncStatus.msg && (
-                        <div className={`mt-4 p-3 rounded-lg text-sm flex items-center gap-2 ${syncStatus.type === 'success' ? 'bg-green-50 text-green-700 border border-green-100' : 'bg-red-50 text-red-700 border border-red-100'}`}>
-                            {syncStatus.type === 'success' ? <CheckCircle className="w-4 h-4" /> : <AlertTriangle className="w-4 h-4" />}
-                            {syncStatus.msg}
-                        </div>
-                    )}
-                </div>
-
-                {/* Sharing Section */}
-                <div className="pt-6 border-t border-gray-100">
-                    <h4 className="text-sm font-bold text-gray-800 mb-3 flex items-center gap-2">
-                        <Share2 className="w-4 h-4 text-purple-500" /> Share Project Access
-                    </h4>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div className="bg-purple-50 p-4 rounded-xl border border-purple-100">
-                            <p className="text-xs text-purple-800 mb-2">Generate a connection token to share this cloud configuration with another user/device.</p>
-                            <button 
-                                onClick={handleGenerateShareToken}
-                                className="w-full bg-white text-purple-700 border border-purple-200 px-3 py-2 rounded-lg text-xs font-bold hover:bg-purple-100 transition-colors mb-2"
-                            >
-                                Generate Token
-                            </button>
-                            {shareToken && (
-                                <div className="relative">
-                                    <textarea 
-                                        readOnly 
-                                        value={shareToken}
-                                        className="w-full p-2 text-[10px] bg-white border border-purple-200 rounded h-16 resize-none focus:outline-none"
-                                    />
-                                    <button 
-                                        onClick={() => { navigator.clipboard.writeText(shareToken); alert("Copied!"); }}
-                                        className="absolute top-2 right-2 p-1 bg-purple-100 text-purple-600 rounded hover:bg-purple-200"
-                                    >
-                                        <Copy className="w-3 h-3" />
-                                    </button>
-                                </div>
-                            )}
-                        </div>
-                        <div className="bg-gray-50 p-4 rounded-xl border border-gray-200">
-                            <p className="text-xs text-gray-700 mb-2">Import a connection token from another user to connect to their cloud.</p>
-                            <textarea 
-                                placeholder="Paste token here..."
-                                value={importToken}
-                                onChange={(e) => setImportToken(e.target.value)}
-                                className="w-full p-2 text-[10px] bg-white border border-gray-300 rounded h-16 resize-none focus:outline-none mb-2"
-                            />
-                            <button 
-                                onClick={handleImportToken}
-                                disabled={!importToken}
-                                className="w-full bg-gray-800 text-white px-3 py-2 rounded-lg text-xs font-bold hover:bg-gray-900 transition-colors disabled:opacity-50"
-                            >
-                                Connect via Token
-                            </button>
-                        </div>
-                    </div>
-                </div>
-              </div>
-            )}
-
             {/* General Settings */}
             {activeTab === 'general' && (
               <div className="space-y-6">
@@ -883,81 +602,6 @@ const Settings: React.FC = () => {
                   </div>
                 </div>
               </div>
-            )}
-
-            {/* ... [Rest of the tabs are identical, only Cloud tab was updated] ... */}
-            
-            {/* Sub Admin / Office Staff Management */}
-            {activeTab === 'subadmin' && (
-                <div className="space-y-6">
-                    <div className="flex justify-between items-center border-b border-gray-100 pb-4">
-                        <div>
-                            <h3 className="text-lg font-bold text-gray-800">Sub Admin Management</h3>
-                            <p className="text-sm text-gray-500">Create office staff accounts and assign specific permissions.</p>
-                        </div>
-                        <button 
-                            onClick={() => openSubAdminModal()}
-                            className="bg-emerald-500 text-white px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-medium hover:bg-emerald-600 transition-colors"
-                        >
-                            <Plus className="w-4 h-4" /> Add Sub Admin
-                        </button>
-                    </div>
-
-                    {subAdmins.length === 0 ? (
-                        <div className="text-center py-10 bg-gray-50 rounded-xl border border-dashed border-gray-300">
-                            <Shield className="w-10 h-10 text-gray-300 mx-auto mb-3" />
-                            <p className="text-gray-500">No sub-admins created yet.</p>
-                        </div>
-                    ) : (
-                        <div className="overflow-x-auto">
-                            <table className="w-full text-left border-collapse">
-                                <thead className="bg-gray-50 text-gray-500 text-xs font-bold uppercase">
-                                    <tr>
-                                        <th className="px-4 py-3">Name</th>
-                                        <th className="px-4 py-3">Email</th>
-                                        <th className="px-4 py-3">Role</th>
-                                        <th className="px-4 py-3 text-center">Status</th>
-                                        <th className="px-4 py-3 text-right">Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-gray-100">
-                                    {subAdmins.map(admin => (
-                                        <tr key={admin.id} className="hover:bg-gray-50/50 transition-colors">
-                                            <td className="px-4 py-3 font-medium text-gray-800">{admin.name}</td>
-                                            <td className="px-4 py-3 text-gray-600 text-sm">{admin.email}</td>
-                                            <td className="px-4 py-3">
-                                                <span className="inline-flex items-center gap-1 bg-indigo-50 text-indigo-700 px-2 py-1 rounded text-xs font-bold border border-indigo-100">
-                                                    <Shield className="w-3 h-3" /> Sub Admin
-                                                </span>
-                                            </td>
-                                            <td className="px-4 py-3 text-center">
-                                                <span className={`px-2 py-1 rounded-full text-xs font-bold ${admin.status === 'Active' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
-                                                    {admin.status}
-                                                </span>
-                                            </td>
-                                            <td className="px-4 py-3 text-right flex justify-end gap-2">
-                                                <button 
-                                                    onClick={() => openSubAdminModal(admin)}
-                                                    className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
-                                                    title="Edit Permissions"
-                                                >
-                                                    <Edit2 className="w-4 h-4" />
-                                                </button>
-                                                <button 
-                                                    onClick={() => deleteSubAdmin(admin.id)}
-                                                    className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
-                                                    title="Delete User"
-                                                >
-                                                    <Trash2 className="w-4 h-4" />
-                                                </button>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-                    )}
-                </div>
             )}
 
             {/* Attendance Rules */}
@@ -1036,6 +680,79 @@ const Settings: React.FC = () => {
                    </div>
                 </div>
               </div>
+            )}
+
+            {/* Sub Admin / Office Staff Management */}
+            {activeTab === 'subadmin' && (
+                <div className="space-y-6">
+                    <div className="flex justify-between items-center border-b border-gray-100 pb-4">
+                        <div>
+                            <h3 className="text-lg font-bold text-gray-800">Sub Admin Management</h3>
+                            <p className="text-sm text-gray-500">Create office staff accounts and assign specific permissions.</p>
+                        </div>
+                        <button 
+                            onClick={() => openSubAdminModal()}
+                            className="bg-emerald-500 text-white px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-medium hover:bg-emerald-600 transition-colors"
+                        >
+                            <Plus className="w-4 h-4" /> Add Sub Admin
+                        </button>
+                    </div>
+
+                    {subAdmins.length === 0 ? (
+                        <div className="text-center py-10 bg-gray-50 rounded-xl border border-dashed border-gray-300">
+                            <Shield className="w-10 h-10 text-gray-300 mx-auto mb-3" />
+                            <p className="text-gray-500">No sub-admins created yet.</p>
+                        </div>
+                    ) : (
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-left border-collapse">
+                                <thead className="bg-gray-50 text-gray-500 text-xs font-bold uppercase">
+                                    <tr>
+                                        <th className="px-4 py-3">Name</th>
+                                        <th className="px-4 py-3">Email</th>
+                                        <th className="px-4 py-3">Role</th>
+                                        <th className="px-4 py-3 text-center">Status</th>
+                                        <th className="px-4 py-3 text-right">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-100">
+                                    {subAdmins.map(admin => (
+                                        <tr key={admin.id} className="hover:bg-gray-50/50 transition-colors">
+                                            <td className="px-4 py-3 font-medium text-gray-800">{admin.name}</td>
+                                            <td className="px-4 py-3 text-gray-600 text-sm">{admin.email}</td>
+                                            <td className="px-4 py-3">
+                                                <span className="inline-flex items-center gap-1 bg-indigo-50 text-indigo-700 px-2 py-1 rounded text-xs font-bold border border-indigo-100">
+                                                    <Shield className="w-3 h-3" /> Sub Admin
+                                                </span>
+                                            </td>
+                                            <td className="px-4 py-3 text-center">
+                                                <span className={`px-2 py-1 rounded-full text-xs font-bold ${admin.status === 'Active' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+                                                    {admin.status}
+                                                </span>
+                                            </td>
+                                            <td className="px-4 py-3 text-right flex justify-end gap-2">
+                                                <button 
+                                                    onClick={() => openSubAdminModal(admin)}
+                                                    className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                                                    title="Edit Permissions"
+                                                >
+                                                    <Edit2 className="w-4 h-4" />
+                                                </button>
+                                                <button 
+                                                    onClick={() => deleteSubAdmin(admin.id)}
+                                                    className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                                                    title="Delete User"
+                                                >
+                                                    <Trash2 className="w-4 h-4" />
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
+                </div>
             )}
 
             {/* White Labeling - Super Admin Only */}
@@ -1205,14 +922,6 @@ const Settings: React.FC = () => {
                                     {showKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                                  </button>
                               </div>
-                              <a 
-                                 href="https://developers.google.com/maps/documentation/javascript/get-api-key" 
-                                 target="_blank" 
-                                 rel="noreferrer"
-                                 className="px-3 py-2 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 flex items-center gap-1 text-sm"
-                              >
-                                 Get Key <ExternalLink className="w-3 h-3" />
-                              </a>
                            </div>
                            <p className="text-xs text-amber-600 flex items-center gap-1 mt-1">
                               <AlertTriangle className="w-3 h-3" /> Ensure 'Maps JavaScript API', 'Places API', and 'Geocoding API' are enabled.
@@ -1349,8 +1058,8 @@ const Settings: React.FC = () => {
                </div>
             )}
 
-            {/* Action Bar (Hide for Security/Cloud tabs as they have their own submit) */}
-            {activeTab !== 'security' && activeTab !== 'cloud' && (
+            {/* Action Bar */}
+            {activeTab !== 'security' && (
                 <div className="mt-8 pt-6 border-t border-gray-100 flex justify-end">
                 <button 
                     onClick={handleSave}

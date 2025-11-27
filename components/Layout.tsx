@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Users, MapPin, Calendar, DollarSign, Briefcase, Menu, X, LogOut, UserCircle, Building, Settings, Target, CreditCard, ClipboardList, ReceiptIndianRupee, Navigation, Car, Building2, PhoneIncoming, GripVertical, Edit2, Check, FileText, Sparkles, Layers, PhoneCall, Bus, Bell, Sun, Moon, Monitor, Mail } from 'lucide-react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { LayoutDashboard, Users, MapPin, Calendar, DollarSign, Briefcase, Menu, X, LogOut, UserCircle, Building, Settings, Target, CreditCard, ClipboardList, ReceiptIndianRupee, Navigation, Car, Building2, PhoneIncoming, GripVertical, Edit2, Check, FileText, Sparkles, Layers, PhoneCall, Bus, Bell, Sun, Moon, Monitor, Mail, ChevronDown, UserCog, ArrowLeft, Volume2, Smartphone } from 'lucide-react';
 import { UserRole } from '../types';
 import { useBranding } from '../context/BrandingContext';
 import { useTheme } from '../context/ThemeContext';
@@ -38,6 +38,7 @@ const Layout: React.FC<LayoutProps> = ({ children, role, onLogout }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isEditingSidebar, setIsEditingSidebar] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
   const { companyName, logoUrl, primaryColor } = useBranding();
   const { theme, setTheme } = useTheme();
   const [themeMenuOpen, setThemeMenuOpen] = useState(false);
@@ -49,17 +50,28 @@ const Layout: React.FC<LayoutProps> = ({ children, role, onLogout }) => {
   const [userName, setUserName] = useState('');
   const [userSubtitle, setUserSubtitle] = useState('');
 
-  // Notification State
+  // Header Dropdowns State
   const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [userDropdownOpen, setUserDropdownOpen] = useState(false);
+  const [notifSettingsMode, setNotifSettingsMode] = useState(false);
+  
   const notificationRef = useRef<HTMLDivElement>(null);
   const themeRef = useRef<HTMLDivElement>(null);
+  const userDropdownRef = useRef<HTMLDivElement>(null);
 
   const [notifications, setNotifications] = useState([
-    { id: 1, title: 'New Lead Assigned', message: 'Rahul Gupta has been assigned to you.', time: '10 min ago', unread: true },
-    { id: 2, title: 'Meeting Reminder', message: 'Team sync at 4:00 PM.', time: '1 hr ago', unread: true },
-    { id: 3, title: 'Task Completed', message: 'Monthly Report task marked as done.', time: '3 hrs ago', unread: false },
-    { id: 4, title: 'System Alert', message: 'Server maintenance scheduled for Sunday.', time: '5 hrs ago', unread: false },
+    { id: 1, title: 'New Lead Assigned', message: 'Rahul Gupta has been assigned to you.', time: '10 min ago', unread: true, link: role === UserRole.EMPLOYEE ? '/user/tasks' : '/admin/leads' },
+    { id: 2, title: 'Meeting Reminder', message: 'Team sync at 4:00 PM.', time: '1 hr ago', unread: true, link: role === UserRole.EMPLOYEE ? '/user/tasks' : '/admin/tasks' },
+    { id: 3, title: 'Task Completed', message: 'Monthly Report task marked as done.', time: '3 hrs ago', unread: false, link: role === UserRole.EMPLOYEE ? '/user/tasks' : '/admin/tasks' },
+    { id: 4, title: 'System Alert', message: 'Server maintenance scheduled for Sunday.', time: '5 hrs ago', unread: false, link: role === UserRole.EMPLOYEE ? '/user/profile' : '/admin/settings' },
   ]);
+
+  // Mock Notification Settings
+  const [notifPreferences, setNotifPreferences] = useState({
+    email: true,
+    push: true,
+    sound: false
+  });
 
   const unreadCount = notifications.filter(n => n.unread).length;
 
@@ -153,14 +165,18 @@ const Layout: React.FC<LayoutProps> = ({ children, role, onLogout }) => {
     }
   }, [role]);
 
-  // Click outside to close notifications and theme menu
+  // Click outside to close dropdowns
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (notificationRef.current && !notificationRef.current.contains(event.target as Node)) {
         setNotificationsOpen(false);
+        setNotifSettingsMode(false); // Reset to list view on close
       }
       if (themeRef.current && !themeRef.current.contains(event.target as Node)) {
         setThemeMenuOpen(false);
+      }
+      if (userDropdownRef.current && !userDropdownRef.current.contains(event.target as Node)) {
+        setUserDropdownOpen(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -168,6 +184,18 @@ const Layout: React.FC<LayoutProps> = ({ children, role, onLogout }) => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, []);
+
+  // Notification Click Handler
+  const handleNotificationClick = (notification: any) => {
+    // Mark as read
+    setNotifications(prev => prev.map(n => n.id === notification.id ? { ...n, unread: false } : n));
+    // Close dropdown
+    setNotificationsOpen(false);
+    // Navigate
+    if (notification.link) {
+        navigate(notification.link);
+    }
+  };
 
   // Drag and Drop Handlers
   const handleDragStart = (e: React.DragEvent<HTMLAnchorElement>, index: number) => {
@@ -390,7 +418,7 @@ const Layout: React.FC<LayoutProps> = ({ children, role, onLogout }) => {
             {/* Notification Bell */}
             <div className="relative" ref={notificationRef}>
               <button 
-                onClick={() => setNotificationsOpen(!notificationsOpen)}
+                onClick={() => { setNotificationsOpen(!notificationsOpen); setNotifSettingsMode(false); }}
                 className="p-2 text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800 rounded-full transition-colors relative"
                 title="Notifications"
               >
@@ -404,69 +432,176 @@ const Layout: React.FC<LayoutProps> = ({ children, role, onLogout }) => {
               {notificationsOpen && (
                 <div className="absolute right-0 mt-2 w-80 bg-white dark:bg-gray-900 rounded-xl shadow-lg border border-gray-100 dark:border-gray-700 py-2 z-50 animate-in fade-in slide-in-from-top-2 duration-200">
                   <div className="px-4 py-2 border-b border-gray-100 dark:border-gray-800 flex justify-between items-center">
-                    <h3 className="font-bold text-sm text-gray-800 dark:text-gray-100">Notifications</h3>
-                    {unreadCount > 0 && (
-                      <span 
-                        className="text-xs text-emerald-600 font-medium cursor-pointer hover:underline" 
-                        onClick={() => setNotifications(prev => prev.map(n => ({...n, unread: false})))}
-                      >
-                        Mark all read
-                      </span>
-                    )}
-                  </div>
-                  <div className="max-h-[300px] overflow-y-auto">
-                    {notifications.length > 0 ? (
-                      notifications.map(n => (
-                        <div key={n.id} className={`px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors border-b border-gray-50 dark:border-gray-800 last:border-0 cursor-pointer ${n.unread ? 'bg-blue-50/30 dark:bg-blue-900/10' : ''}`}>
-                          <div className="flex justify-between items-start mb-1">
-                            <p className={`text-sm font-medium ${n.unread ? 'text-gray-900 dark:text-white' : 'text-gray-600 dark:text-gray-400'}`}>{n.title}</p>
-                            <span className="text-[10px] text-gray-400">{n.time}</span>
-                          </div>
-                          <p className="text-xs text-gray-500 dark:text-gray-500 line-clamp-2">{n.message}</p>
-                        </div>
-                      ))
+                    {notifSettingsMode ? (
+                        <button 
+                            onClick={() => setNotifSettingsMode(false)}
+                            className="text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 p-1 rounded transition-colors"
+                        >
+                            <ArrowLeft className="w-4 h-4" />
+                        </button>
                     ) : (
-                      <div className="px-4 py-8 text-center text-gray-400 text-sm">No notifications</div>
+                        <h3 className="font-bold text-sm text-gray-800 dark:text-gray-100">Notifications</h3>
+                    )}
+                    
+                    {notifSettingsMode ? (
+                        <h3 className="font-bold text-sm text-gray-800 dark:text-gray-100">Settings</h3>
+                    ) : (
+                        <div className="flex items-center gap-3">
+                            {unreadCount > 0 && (
+                                <span 
+                                    className="text-xs text-emerald-600 font-medium cursor-pointer hover:underline" 
+                                    onClick={() => setNotifications(prev => prev.map(n => ({...n, unread: false})))}
+                                >
+                                    Mark read
+                                </span>
+                            )}
+                            <button 
+                                onClick={() => setNotifSettingsMode(true)}
+                                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                            >
+                                <Settings className="w-4 h-4" />
+                            </button>
+                        </div>
                     )}
                   </div>
-                  <div className="px-4 py-2 border-t border-gray-100 dark:border-gray-800 text-center bg-gray-50/50 dark:bg-gray-800/50">
-                    <button className="text-xs font-medium text-gray-500 dark:text-gray-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors">View All Activity</button>
-                  </div>
+
+                  {notifSettingsMode ? (
+                      <div className="p-2 space-y-1">
+                          <div className="flex items-center justify-between px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-lg cursor-pointer" onClick={() => setNotifPreferences(p => ({...p, email: !p.email}))}>
+                              <div className="flex items-center gap-3">
+                                  <div className="p-2 bg-blue-50 dark:bg-blue-900/20 rounded text-blue-600 dark:text-blue-400">
+                                      <Mail className="w-4 h-4" />
+                                  </div>
+                                  <span className="text-sm text-gray-700 dark:text-gray-300">Email Alerts</span>
+                              </div>
+                              <div className={`w-9 h-5 rounded-full relative transition-colors ${notifPreferences.email ? 'bg-emerald-500' : 'bg-gray-200 dark:bg-gray-700'}`}>
+                                  <div className={`w-3.5 h-3.5 bg-white rounded-full absolute top-0.5 transition-transform ${notifPreferences.email ? 'left-5' : 'left-0.5'}`}></div>
+                              </div>
+                          </div>
+                          <div className="flex items-center justify-between px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-lg cursor-pointer" onClick={() => setNotifPreferences(p => ({...p, push: !p.push}))}>
+                              <div className="flex items-center gap-3">
+                                  <div className="p-2 bg-purple-50 dark:bg-purple-900/20 rounded text-purple-600 dark:text-purple-400">
+                                      <Smartphone className="w-4 h-4" />
+                                  </div>
+                                  <span className="text-sm text-gray-700 dark:text-gray-300">Push Notifs</span>
+                              </div>
+                              <div className={`w-9 h-5 rounded-full relative transition-colors ${notifPreferences.push ? 'bg-emerald-500' : 'bg-gray-200 dark:bg-gray-700'}`}>
+                                  <div className={`w-3.5 h-3.5 bg-white rounded-full absolute top-0.5 transition-transform ${notifPreferences.push ? 'left-5' : 'left-0.5'}`}></div>
+                              </div>
+                          </div>
+                          <div className="flex items-center justify-between px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-lg cursor-pointer" onClick={() => setNotifPreferences(p => ({...p, sound: !p.sound}))}>
+                              <div className="flex items-center gap-3">
+                                  <div className="p-2 bg-orange-50 dark:bg-orange-900/20 rounded text-orange-600 dark:text-orange-400">
+                                      <Volume2 className="w-4 h-4" />
+                                  </div>
+                                  <span className="text-sm text-gray-700 dark:text-gray-300">Sound</span>
+                              </div>
+                              <div className={`w-9 h-5 rounded-full relative transition-colors ${notifPreferences.sound ? 'bg-emerald-500' : 'bg-gray-200 dark:bg-gray-700'}`}>
+                                  <div className={`w-3.5 h-3.5 bg-white rounded-full absolute top-0.5 transition-transform ${notifPreferences.sound ? 'left-5' : 'left-0.5'}`}></div>
+                              </div>
+                          </div>
+                      </div>
+                  ) : (
+                      <>
+                        <div className="max-h-[300px] overflow-y-auto">
+                            {notifications.length > 0 ? (
+                            notifications.map(n => (
+                                <div 
+                                    key={n.id} 
+                                    onClick={() => handleNotificationClick(n)}
+                                    className={`px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors border-b border-gray-50 dark:border-gray-800 last:border-0 cursor-pointer ${n.unread ? 'bg-blue-50/30 dark:bg-blue-900/10' : ''}`}
+                                >
+                                <div className="flex justify-between items-start mb-1">
+                                    <p className={`text-sm font-medium ${n.unread ? 'text-gray-900 dark:text-white' : 'text-gray-600 dark:text-gray-400'}`}>{n.title}</p>
+                                    <span className="text-[10px] text-gray-400">{n.time}</span>
+                                </div>
+                                <p className="text-xs text-gray-500 dark:text-gray-500 line-clamp-2">{n.message}</p>
+                                </div>
+                            ))
+                            ) : (
+                            <div className="px-4 py-8 text-center text-gray-400 text-sm">No notifications</div>
+                            )}
+                        </div>
+                        <div className="px-4 py-2 border-t border-gray-100 dark:border-gray-800 text-center bg-gray-50/50 dark:bg-gray-800/50">
+                            <button className="text-xs font-medium text-gray-500 dark:text-gray-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors">View All Activity</button>
+                        </div>
+                      </>
+                  )}
                 </div>
               )}
             </div>
 
             <div className="h-8 w-[1px] bg-gray-200 dark:bg-gray-700 hidden sm:block"></div>
 
-            <div className="flex items-center gap-3">
-              <img 
-                src={role === UserRole.ADMIN 
-                  ? "https://picsum.photos/id/1077/40/40" 
-                  : `https://ui-avatars.com/api/?name=${encodeURIComponent(userName || 'User')}&background=random&color=fff`
-                } 
-                alt="Profile" 
-                className="w-9 h-9 rounded-full border border-gray-200 dark:border-gray-700 object-cover"
-              />
-              <div className="hidden sm:block text-sm">
-                <div className="font-medium text-gray-700 dark:text-gray-200">
-                  {userName || (role === UserRole.ADMIN ? 'Senthil Kumar' : 'Loading...')}
+            {/* User Profile Dropdown */}
+            <div className="relative" ref={userDropdownRef}>
+              <button 
+                onClick={() => setUserDropdownOpen(!userDropdownOpen)}
+                className="flex items-center gap-3 pl-2 py-1 pr-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors border border-transparent hover:border-gray-200 dark:hover:border-gray-700"
+              >
+                <img 
+                    src={role === UserRole.ADMIN 
+                    ? "https://picsum.photos/id/1077/40/40" 
+                    : `https://ui-avatars.com/api/?name=${encodeURIComponent(userName || 'User')}&background=random&color=fff`
+                    } 
+                    alt="Profile" 
+                    className="w-8 h-8 rounded-full border border-gray-200 dark:border-gray-700 object-cover"
+                />
+                <div className="hidden sm:block text-left">
+                    <div className="font-medium text-sm text-gray-700 dark:text-gray-200 leading-none mb-0.5">
+                    {userName || (role === UserRole.ADMIN ? 'Senthil Kumar' : 'Loading...')}
+                    </div>
+                    <div className="text-gray-400 text-[10px]">
+                    {userSubtitle || (role === UserRole.ADMIN ? 'CEO & Founder' : 'User')}
+                    </div>
                 </div>
-                <div className="text-gray-400 text-xs">
-                  {userSubtitle || (role === UserRole.ADMIN ? 'CEO & Founder' : 'User')}
+                <ChevronDown className="w-4 h-4 text-gray-400 hidden sm:block" />
+              </button>
+
+              {userDropdownOpen && (
+                <div className="absolute right-0 mt-2 w-56 bg-white dark:bg-gray-900 rounded-xl shadow-lg border border-gray-100 dark:border-gray-700 py-1 z-50 animate-in fade-in slide-in-from-top-2 duration-200 overflow-hidden">
+                    <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-800/50">
+                        <p className="text-sm font-bold text-gray-900 dark:text-white">{userName}</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{userSubtitle}</p>
+                    </div>
+                    
+                    <div className="p-1">
+                        <Link 
+                            to={role === UserRole.EMPLOYEE ? '/user/profile' : '/admin/settings'} 
+                            onClick={() => setUserDropdownOpen(false)}
+                            className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg"
+                        >
+                            <UserCircle className="w-4 h-4 text-gray-500" /> My Profile
+                        </Link>
+                        {role === UserRole.ADMIN && (
+                            <Link 
+                                to="/admin/subscription" 
+                                onClick={() => setUserDropdownOpen(false)}
+                                className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg"
+                            >
+                                <CreditCard className="w-4 h-4 text-gray-500" /> Billing
+                            </Link>
+                        )}
+                        <Link 
+                            to="/admin/settings"
+                            onClick={() => setUserDropdownOpen(false)}
+                            className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg"
+                        >
+                            <UserCog className="w-4 h-4 text-gray-500" /> Settings
+                        </Link>
+                    </div>
+
+                    <div className="border-t border-gray-100 dark:border-gray-800 p-1">
+                        <button 
+                            onClick={() => { setUserDropdownOpen(false); onLogout(); }}
+                            className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                        >
+                            <LogOut className="w-4 h-4" /> Sign Out
+                        </button>
+                    </div>
                 </div>
-              </div>
+              )}
             </div>
-            
-            <div className="h-8 w-[1px] bg-gray-200 dark:bg-gray-700 hidden sm:block"></div>
-            
-            <button 
-              onClick={onLogout}
-              className="flex items-center gap-2 p-2 px-3 text-gray-500 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
-              title="Logout"
-            >
-              <LogOut className="w-5 h-5" />
-              <span className="hidden md:inline font-medium">Logout</span>
-            </button>
           </div>
         </header>
 
