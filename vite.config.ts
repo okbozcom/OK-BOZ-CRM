@@ -6,7 +6,10 @@ import react from '@vitejs/plugin-react';
 export default defineConfig({
   plugins: [react()],
   define: {
-    // Ensures process.env is available for Firebase/API keys if needed in some environments
-    'process.env': process.env
+    // Securely inject the API key.
+    // Vercel exposes environment variables during the build process.
+    'process.env.API_KEY': JSON.stringify(process.env.API_KEY),
+    // Fallback for other process.env access if necessary, but avoid exposing the whole object
+    'process.env': {} 
   }
 });
